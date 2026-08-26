@@ -28,7 +28,6 @@ function Employees() {
       setLoading(true);
       setError('');
       const data = await getEmployees();
-      console.log('Employees API:', data);
       setEmployees(Array.isArray(data?.employees) ? data.employees : Array.isArray(data?.Items) ? data.Items : Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
@@ -50,8 +49,7 @@ function Employees() {
     try {
       setCreating(true);
       setFormError('');
-      const result = await createEmployee(formData);
-      console.log('Employee created:', result);
+      await createEmployee(formData);
       setShowForm(false);
       setFormData({
         employee_id: '',

@@ -37,9 +37,6 @@ export async function createEmployee(employeeData) {
   });
 
   const text = await response.text();
-  console.log('Create Employee Status:', response.status);
-  console.log('Create Employee Response:', text);
-  console.log('Employee Data Sent:', employeeData);
   let data;
   try {
     data = JSON.parse(text);

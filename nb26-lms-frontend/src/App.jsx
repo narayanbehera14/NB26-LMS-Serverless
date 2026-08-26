@@ -17,6 +17,7 @@ import Employees from './pages/Employees';
 import EmployeeCourses from './pages/EmployeeCourses';
 import AssignCourse from './pages/AssignCourse';
 import Quiz from './pages/Quiz';
+import TakeQuiz from './pages/TakeQuiz';
 import Courses from './pages/Courses';
 import Certificate from './pages/Certificate';
 
@@ -32,12 +33,13 @@ const getPageFromURL = () => {
   if (path === '/certificates') return 'certificates';
   if (path === '/assign-course') return 'assign-course';
   if (path === '/quiz') return 'quiz';
+  if (path === '/take-quiz') return 'take-quiz';
 
   return 'dashboard';
 };
 
 const [currentPage, setCurrentPage] = useState(getPageFromURL);
-  const navigateTo = (page) => {
+  const navigateTo = (page, query = {}) => {
     const paths = {
       dashboard: '/',
       employees: '/employees',
@@ -46,8 +48,12 @@ const [currentPage, setCurrentPage] = useState(getPageFromURL);
       certificates: '/certificates',
       'assign-course': '/assign-course',
       quiz: '/quiz',
+      'take-quiz': '/take-quiz',
     };
-    const path = paths[page] || '/';
+    const queryString = new URLSearchParams(
+      Object.entries(query).filter(([, value]) => value)
+    ).toString();
+    const path = `${paths[page] || '/'}${queryString ? `?${queryString}` : ''}`;
     window.history.pushState({}, '', path);
     setCurrentPage(page);
     setShowEmployeeForm(false);
@@ -98,8 +104,6 @@ const [currentPage, setCurrentPage] = useState(getPageFromURL);
 
       const data = await getEmployees();
 
-      console.log('Employees API:', data);
-
       const employeeList = Array.isArray(data?.employees)
         ? data.employees
         : Array.isArray(data)
@@ -128,8 +132,6 @@ const [currentPage, setCurrentPage] = useState(getPageFromURL);
         setError('');
 
         const data = await getSkillGap();
-
-        console.log('Skill Gap API:', data);
 
         setSkillGapData(data);
       } catch (err) {
@@ -250,7 +252,7 @@ const [currentPage, setCurrentPage] = useState(getPageFromURL);
              EMPLOYEE COURSES PAGE
           ========================= */
           ) : currentPage === 'employee-courses' ? (
-            <EmployeeCourses />
+            <EmployeeCourses navigateTo={navigateTo} />
 
           /* =========================
              CREATE COURSE PAGE
@@ -275,6 +277,12 @@ const [currentPage, setCurrentPage] = useState(getPageFromURL);
            ========================= */
            ) : currentPage === 'quiz' ? (
             <Quiz />
+
+          /* =========================
+             TAKE QUIZ PAGE
+          ========================= */
+          ) : currentPage === 'take-quiz' ? (
+            <TakeQuiz navigateTo={navigateTo} />
 
           /* =========================
              LOADING
@@ -641,11 +649,22 @@ const [currentPage, setCurrentPage] = useState(getPageFromURL);
                   <button
                     type="button"
                     onClick={() =>
-                      navigateTo('quiz')
+                      navigateTo('take-quiz')
                     }
                   >
                     <ClipboardList size={20} />
                     Take Quiz
+                  </button>
+
+                  {/* CREATE QUIZ QUESTION */}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigateTo('quiz')
+                    }
+                  >
+                    <ClipboardList size={20} />
+                    Create Quiz Question
                   </button>
 
                   {/* CERTIFICATES */}

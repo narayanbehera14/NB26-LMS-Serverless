@@ -804,3 +804,97 @@ Certificate Verification
 AWS Cloud & Full Stack Development Project
 
 **NB26-LMS – Serverless Learning Management System**
+
+---
+
+# ✅ Current Browser Testing Flow
+
+The frontend supports the following browser workflow:
+
+```text
+Create Employee
+        ↓
+Create Course
+        ↓
+Assign Course
+        ↓
+Create Quiz Question
+        ↓
+Select Employee and Course
+        ↓
+Take Quiz
+        ↓
+Pass Quiz
+        ↓
+Generate Certificate
+        ↓
+Open PDF and Verify Certificate
+```
+
+## Frontend Routes
+
+| Route | Purpose |
+| ----- | ------- |
+| `/` | Dashboard and learning summary |
+| `/employees` | View, search, and create employees |
+| `/courses` | View and create courses |
+| `/assign-course` | Assign a course to an employee |
+| `/employee-courses` | Select an employee and view assigned courses |
+| `/quiz` | Create quiz questions |
+| `/take-quiz` | Take a quiz for a selected employee and course |
+| `/certificates` | Generate and verify certificates |
+
+## Browser Test Procedure
+
+1. Start the frontend:
+
+   ```bash
+   npm install
+   npm run dev
+   ```
+
+2. Open `http://localhost:5175/`.
+3. Open **Employees** and create a unique employee.
+4. Open **Courses** and create a unique course.
+5. Open **Assign Course** and assign the course to the employee.
+6. Open **Create Quiz Question** from the dashboard.
+7. Use the exact course ID when creating the question.
+8. Open **My Courses** and select the new employee.
+9. Click **Take Quiz** for the assigned course.
+10. Answer all questions and submit the quiz.
+11. After passing, click **Generate Certificate**.
+12. Open the generated PDF and verify the certificate ID.
+
+Use unique IDs for every test because the deployed API uses shared persistent data. For example:
+
+```text
+Employee ID: BROWSER-EMP-20260826-01
+Course ID: BROWSER-COURSE-20260826-01
+Question ID: BROWSER-Q-20260826-01
+```
+
+## Certificate and Amazon SES
+
+Certificate generation uses the deployed AWS backend. If the backend sends a notification email, the recipient email address must be verified in Amazon SES when the AWS account is in sandbox mode.
+
+For this error:
+
+```text
+Email address is not verified
+MessageRejected
+```
+
+Verify the recipient identity in Amazon SES in the `us-east-1` region, or use an email address that is already verified. After verification, return to `/certificates` and retry generation.
+
+The backend should ideally keep the certificate issued when only the optional email notification fails. The React frontend does not contain the Lambda, DynamoDB, S3, IAM, or SES backend source.
+
+## Validation Commands
+
+Run these commands before sharing the frontend:
+
+```bash
+npm run lint
+npm run build
+```
+
+Both commands must complete without errors.

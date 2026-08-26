@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { CheckCircle, ClipboardList, AlertCircle } from "lucide-react";
+import { CheckCircle, ClipboardList, AlertCircle, Award } from "lucide-react";
 import { getQuiz, submitQuiz } from "../api";
 
-function TakeQuiz() {
-  const employeeId = "EMP001";
-  const courseId = "CRS005";
+function TakeQuiz({ navigateTo }) {
+  const params = new URLSearchParams(window.location.search);
+  const employeeId = params.get("employee_id");
+  const courseId = params.get("course_id");
 
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
@@ -15,13 +16,17 @@ function TakeQuiz() {
 
   useEffect(() => {
     const loadQuiz = async () => {
+      if (!employeeId || !courseId) {
+        setLoading(false);
+        setError("Select an employee and course from My Courses to take a quiz.");
+        return;
+      }
+
       try {
         setLoading(true);
         setError("");
 
         const data = await getQuiz(courseId);
-
-        console.log("Quiz API:", data);
 
         setQuestions(
           Array.isArray(data?.questions) ? data.questions : []
@@ -35,7 +40,7 @@ function TakeQuiz() {
     };
 
     loadQuiz();
-  }, []);
+  }, [employeeId, courseId]);
 
   const handleAnswerChange = (questionId, answer) => {
     setAnswers((prev) => ({
@@ -68,8 +73,6 @@ function TakeQuiz() {
         answers,
       });
 
-      console.log("Quiz submission:", data);
-
       setResult(data);
     } catch (err) {
       console.error(err);
@@ -85,6 +88,31 @@ function TakeQuiz() {
         <div className="loading-state">
           Loading quiz...
         </div>
+      </div>
+    );
+  }
+
+  if (!employeeId || !courseId) {
+    return (
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <h3>Take Quiz</h3>
+            <p>Select a course before starting the quiz.</p>
+          </div>
+        </div>
+
+        <div className="error-banner">
+          Select an employee and course from My Courses to take a quiz.
+        </div>
+
+        <button
+          type="button"
+          className="primary-button"
+          onClick={() => navigateTo("employee-courses")}
+        >
+          Select Course
+        </button>
       </div>
     );
   }
@@ -143,11 +171,35 @@ function TakeQuiz() {
           >
             {result.status}
           </span>
+
+          {result.status === "passed" && (
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() =>
+                navigateTo("certificates", {
+                  employee_id: employeeId,
+                  course_id: courseId,
+                })
+              }
+              style={{ marginTop: "15px" }}
+            >
+              <Award size={18} />
+              Generate Certificate
+            </button>
+          )}
         </div>
       ) : questions.length === 0 ? (
         <div className="empty-state">
           <ClipboardList size={28} />
           <p>No quiz questions found for this course.</p>
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => navigateTo("quiz")}
+          >
+            Create Quiz Question
+          </button>
         </div>
       ) : (
         <form onSubmit={handleSubmit}>

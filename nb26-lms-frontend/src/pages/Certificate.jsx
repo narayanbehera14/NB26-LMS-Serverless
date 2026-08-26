@@ -6,10 +6,14 @@ const API_BASE_URL =
   'https://tq1py1806g.execute-api.us-east-1.amazonaws.com';
 
 function Certificate() {
+  const params = new URLSearchParams(window.location.search);
+  const requestedEmployeeId = params.get('employee_id') || '';
+  const requestedCourseId = params.get('course_id') || '';
+
   const [employees, setEmployees] = useState([]);
   const [courses, setCourses] = useState([]);
 
-  const [employeeId, setEmployeeId] = useState('');
+  const [employeeId, setEmployeeId] = useState(requestedEmployeeId);
   const [courseId, setCourseId] = useState('');
 
   const [certificate, setCertificate] = useState(null);
@@ -71,6 +75,9 @@ function Certificate() {
         );
 
         setCourses(passedCourses);
+        if (passedCourses.some((course) => course.course_id === requestedCourseId)) {
+          setCourseId(requestedCourseId);
+        }
       } catch (error) {
         console.error(error);
         setError('Failed to load employee courses');
@@ -80,7 +87,7 @@ function Certificate() {
     };
 
     loadCourses();
-  }, [employeeId]);
+  }, [employeeId, requestedCourseId]);
 
   // Generate certificate
   const generateCertificate = async () => {
@@ -107,7 +114,7 @@ function Certificate() {
 
       if (!response.ok) {
         throw new Error(
-          data.message ||
+          [data.message, data.error].filter(Boolean).join(': ') ||
           'Failed to generate certificate'
         );
       }

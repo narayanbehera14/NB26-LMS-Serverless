@@ -5,25 +5,62 @@ import {
   CheckCircle,
   AlertCircle,
   Award,
+  ClipboardList,
 } from "lucide-react";
-import { getEmployeeCourses } from "../api";
+import { getEmployees, getEmployeeCourses } from "../api";
 
-function EmployeeCourses({ setCurrentPage }) {
-  const employeeId = "EMP001";
+function EmployeeCourses({ navigateTo }) {
+  const params = new URLSearchParams(window.location.search);
+  const requestedEmployeeId = params.get("employee_id") || "";
 
+  const [employees, setEmployees] = useState([]);
+  const [employeeId, setEmployeeId] = useState(requestedEmployeeId);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [employeesLoading, setEmployeesLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const loadEmployees = async () => {
+      try {
+        const data = await getEmployees();
+        const employeeList = Array.isArray(data?.employees)
+          ? data.employees
+          : Array.isArray(data)
+          ? data
+          : [];
+
+        setEmployees(employeeList);
+        if (!requestedEmployeeId) {
+          setEmployeeId(
+            employeeList.some((employee) => employee.employee_id === "EMP001")
+              ? "EMP001"
+              : employeeList[0]?.employee_id || ""
+          );
+        }
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setEmployeesLoading(false);
+      }
+    };
+
+    loadEmployees();
+  }, [requestedEmployeeId]);
+
+  useEffect(() => {
     const loadCourses = async () => {
+      if (!employeeId) {
+        setCourses([]);
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         setError("");
 
         const data = await getEmployeeCourses(employeeId);
-
-        console.log("Employee Courses API:", data);
 
         setCourses(
           Array.isArray(data?.courses) ? data.courses : []
@@ -37,7 +74,7 @@ function EmployeeCourses({ setCurrentPage }) {
     };
 
     loadCourses();
-  }, []);
+  }, [employeeId]);
 
   const getStatusIcon = (status) => {
     if (status === "passed") {
@@ -64,6 +101,25 @@ function EmployeeCourses({ setCurrentPage }) {
             Courses assigned to employee {employeeId}
           </p>
         </div>
+      </div>
+
+      <div className="form-group" style={{ maxWidth: "420px", marginBottom: "20px" }}>
+        <label htmlFor="employee-select">Employee</label>
+        <select
+          id="employee-select"
+          value={employeeId}
+          onChange={(e) => setEmployeeId(e.target.value)}
+          disabled={employeesLoading}
+        >
+          <option value="">
+            {employeesLoading ? "Loading employees..." : "Select employee"}
+          </option>
+          {employees.map((employee) => (
+            <option key={employee.employee_id} value={employee.employee_id}>
+              {employee.employee_id} - {employee.first_name} {employee.last_name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {error && (
@@ -118,12 +174,15 @@ function EmployeeCourses({ setCurrentPage }) {
                   Attempts: {course.attempt_count}/3
                 </p>
 
-                {course.status === "passed" && (
+                {course.status === "passed" ? (
                   <button
                     type="button"
                     className="primary-button"
                     onClick={() =>
-                      setCurrentPage("certificate")
+                      navigateTo("certificates", {
+                        employee_id: employeeId,
+                        course_id: course.course_id,
+                      })
                     }
                     style={{
                       marginTop: "10px",
@@ -131,6 +190,21 @@ function EmployeeCourses({ setCurrentPage }) {
                   >
                     <Award size={18} />
                     View Certificate
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={() =>
+                      navigateTo("take-quiz", {
+                        employee_id: employeeId,
+                        course_id: course.course_id,
+                      })
+                    }
+                    style={{ marginTop: "10px" }}
+                  >
+                    <ClipboardList size={18} />
+                    Take Quiz
                   </button>
                 )}
               </div>
