@@ -8,9 +8,9 @@ NB26-LMS allows administrators and HR teams to manage employees, create courses 
 
 # 📌 Project Overview
 
-NB26-LMS is designed using a serverless architecture where the React frontend communicates with AWS backend services through Amazon API Gateway and AWS Lambda.
+NB26-LMS is designed using a serverless architecture where the React frontend communicates with AWS backend services through **Amazon API Gateway HTTP API** and **AWS Lambda**.
 
-The system supports the following complete learning workflow:
+The system supports the following learning workflow:
 
 ```text
 Create Employee
@@ -115,10 +115,14 @@ passed
 failed
 ```
 
-Example API:
+Example:
 
 ```text
-GET /employee-courses?employee_id={employee_id}
+Employee: TEST_E2E_002
+Course: CRS002
+Progress: 100%
+Status: passed
+Attempt Count: 1
 ```
 
 ---
@@ -137,7 +141,17 @@ The quiz system supports:
 * Course progress updates
 * Passed and failed status
 
-After a successful quiz attempt, the employee's course progress can be updated to completed.
+After a successful quiz attempt, the employee's course progress is updated to completed/passed.
+
+Example:
+
+```text
+Total Questions: 2
+Correct Answers: 2
+Score: 100
+Status: passed
+Attempt Count: 1
+```
 
 ---
 
@@ -158,9 +172,9 @@ Certificates are generated using:
 
 ```text
 AWS Lambda
-+
+     +
 Python
-+
+     +
 ReportLab
 ```
 
@@ -176,11 +190,37 @@ certificates/
 
 ---
 
+### Duplicate Certificate Protection
+
+The certificate generation process checks whether a certificate already exists for the same employee and course.
+
+If a certificate already exists, the system returns the existing certificate information instead of creating a duplicate certificate.
+
+Example response:
+
+```text
+Certificate already exists
+
+Certificate ID:
+CERT-8D68F9DB9183
+
+Employee:
+TEST_E2E_002
+
+Course:
+CRS002
+
+Status:
+ISSUED
+```
+
+---
+
 ## 🔍 6. Certificate Verification
 
 Certificates can be verified using a unique Certificate ID.
 
-Example endpoint:
+Example:
 
 ```text
 GET /verify/{certificate_id}
@@ -189,15 +229,28 @@ GET /verify/{certificate_id}
 The verification system returns:
 
 * Certificate validity
+* Certificate ID
 * Employee name
+* Employee ID
 * Course name
+* Course ID
 * Completion date
 * Certificate status
 
-Example:
+Example successful verification:
 
-```text
-GET /verify/CERT-XXXXXXXXXXXX
+```json
+{
+  "valid": true,
+  "message": "Certificate is valid",
+  "certificate_id": "CERT-XXXXXXXXXXXX",
+  "employee_id": "EMP004",
+  "employee_name": "Employee Name",
+  "course_id": "CRS001",
+  "course_name": "AWS Cloud Fundamentals",
+  "completion_date": "29 August 2026",
+  "status": "ISSUED"
+}
 ```
 
 ---
@@ -206,14 +259,23 @@ GET /verify/CERT-XXXXXXXXXXXX
 
 Generated certificate PDFs are stored privately in Amazon S3.
 
-The application generates temporary secure URLs for accessing certificates instead of making the S3 bucket publicly accessible.
+The application does not require the S3 bucket to be publicly accessible.
 
-Lambda permissions include:
+Instead, the backend generates **temporary S3 presigned URLs** for certificate PDF access.
 
 ```text
-s3:GetObject
-s3:PutObject
+Private S3 Bucket
+       ↓
+Lambda
+       ↓
+Generate Presigned URL
+       ↓
+Frontend
+       ↓
+Open Certificate PDF
 ```
+
+Presigned URLs are temporary and should not be committed to the Git repository.
 
 ---
 
@@ -228,11 +290,12 @@ s3:PutObject
                     └─────────┬─────────┘
                               │
                               ▼
-                    ┌───────────────────┐
-                    │ Amazon API Gateway│
-                    └─────────┬─────────┘
-                              │
-                              ▼
+                    ┌──────────────────────┐
+                    │ Amazon API Gateway   │
+                    │     HTTP API         │
+                    └──────────┬───────────┘
+                               │
+                               ▼
                     ┌───────────────────┐
                     │    AWS Lambda     │
                     │  Backend Services │
@@ -261,8 +324,8 @@ The project uses the following AWS services:
 
 | AWS Service        | Purpose                               |
 | ------------------ | ------------------------------------- |
-| Amazon API Gateway | Exposes REST APIs to the frontend     |
-| AWS Lambda         | Serverless backend logic              |
+| Amazon API Gateway | Exposes HTTP APIs to the frontend     |
+| AWS Lambda         | Serverless backend business logic     |
 | Amazon DynamoDB    | Stores application data               |
 | Amazon S3          | Stores generated PDF certificates     |
 | AWS IAM            | Controls permissions between services |
@@ -309,6 +372,7 @@ The project uses the following AWS services:
    ┌───────────────┐
    │ Quiz Passed?  │
    └───────┬───────┘
+           │
        Yes │
            ▼
 ┌───────────────────────┐
@@ -412,7 +476,9 @@ Certificate Bucket
         └── CRS001.pdf
 ```
 
-Certificate files are accessed through temporary generated URLs.
+Certificate files are accessed through temporary presigned URLs.
+
+The S3 bucket should remain private.
 
 ---
 
@@ -440,7 +506,26 @@ Example certificate bucket permissions:
 }
 ```
 
-> AWS credentials, access keys, secret keys, temporary tokens, and presigned URLs should not be committed to the repository.
+> AWS credentials, access keys, secret keys, temporary tokens, and presigned URLs should never be committed to the repository.
+
+---
+
+# 📧 Amazon SES
+
+Amazon SES can be used for certificate and learning-related email notifications where configured.
+
+If the AWS account is operating in SES sandbox mode, recipient email addresses must be verified before emails can be sent.
+
+For an error such as:
+
+```text
+Email address is not verified
+MessageRejected
+```
+
+verify the recipient identity in Amazon SES in the configured AWS region.
+
+The certificate should ideally remain issued even if an optional email notification fails.
 
 ---
 
@@ -489,7 +574,7 @@ Course ID: CRS001
 
 # 🔌 API Documentation
 
-The React frontend communicates with AWS services through Amazon API Gateway.
+The React frontend communicates with the AWS backend through Amazon API Gateway.
 
 The API base URL should be configured using an environment variable.
 
@@ -532,6 +617,7 @@ VITE_API_BASE_URL=https://YOUR-API-ID.execute-api.YOUR-REGION.amazonaws.com
 | Method | Endpoint   | Description                |
 | ------ | ---------- | -------------------------- |
 | GET    | `/courses` | Retrieve available courses |
+| POST   | `/courses` | Create a course            |
 
 Example:
 
@@ -546,6 +632,7 @@ GET /courses
 | Method | Endpoint                             | Description                       |
 | ------ | ------------------------------------ | --------------------------------- |
 | GET    | `/employee-courses?employee_id={id}` | Get assigned courses and progress |
+| POST   | `/assign-course`                     | Assign a course to an employee    |
 
 Example:
 
@@ -553,7 +640,7 @@ Example:
 GET /employee-courses?employee_id=EMP001
 ```
 
-Example response data:
+Example response:
 
 ```json
 {
@@ -565,6 +652,28 @@ Example response data:
   "attempt_count": 2
 }
 ```
+
+---
+
+## 📝 Quizzes
+
+| Method | Endpoint       | Description                |
+| ------ | -------------- | -------------------------- |
+| GET    | `/quizzes`     | Retrieve quiz questions    |
+| POST   | `/quizzes`     | Create quiz questions      |
+| POST   | `/quiz/submit` | Submit and evaluate a quiz |
+
+The quiz submission process automatically evaluates answers and updates the employee's course progress and status.
+
+---
+
+## 📊 Skill Gap
+
+| Method | Endpoint     | Description                                     |
+| ------ | ------------ | ----------------------------------------------- |
+| GET    | `/skill-gap` | Retrieve skill-gap and department learning data |
+
+This data can be used by the dashboard to display department-level training progress.
 
 ---
 
@@ -584,6 +693,26 @@ Example response data:
 }
 ```
 
+The certificate generation process:
+
+```text
+Employee + Course
+       ↓
+Check Completion
+       ↓
+Check Existing Certificate
+       ↓
+Generate PDF
+       ↓
+Upload PDF to S3
+       ↓
+Create Certificate Record
+       ↓
+Return Certificate Information
+```
+
+If a certificate already exists, the existing certificate record is returned.
+
 ---
 
 ## 🔍 Certificate Verification
@@ -596,6 +725,22 @@ Example:
 
 ```text
 GET /verify/CERT-XXXXXXXXXXXX
+```
+
+Example successful response:
+
+```json
+{
+  "valid": true,
+  "message": "Certificate is valid",
+  "certificate_id": "CERT-XXXXXXXXXXXX",
+  "employee_id": "EMP004",
+  "employee_name": "Employee Name",
+  "course_id": "CRS001",
+  "course_name": "AWS Cloud Fundamentals",
+  "completion_date": "29 August 2026",
+  "status": "ISSUED"
+}
 ```
 
 ---
@@ -612,6 +757,10 @@ NB26-LMS/
 │   ├── infrastructure.png
 │   ├── working-flow.png
 │   └── screenshots/
+│       ├── dashboard.png
+│       ├── employees.png
+│       ├── courses.png
+│       └── certificate.png
 │
 ├── nb26-lms-frontend/
 │   │
@@ -636,6 +785,7 @@ NB26-LMS/
     ├── AWS Lambda Functions
     ├── Amazon DynamoDB
     ├── Amazon S3
+    ├── Amazon SES
     └── AWS IAM
 ```
 
@@ -691,6 +841,8 @@ Create a `.env` file:
 VITE_API_BASE_URL=https://YOUR-API-ID.execute-api.YOUR-REGION.amazonaws.com
 ```
 
+> Do not commit `.env` files containing sensitive configuration.
+
 ## 5. Start the Application
 
 ```bash
@@ -703,21 +855,95 @@ The application will run on the Vite development server.
 
 # 🧪 Current Working Functionality
 
-The following functionality has been tested and is currently working:
+The following functionality has been tested with the deployed AWS backend:
 
 * ✅ Employee retrieval
 * ✅ Employee creation
 * ✅ Course retrieval
+* ✅ Course creation
+* ✅ Employee course assignment
 * ✅ Employee course retrieval
 * ✅ Course progress tracking
+* ✅ Quiz question creation
+* ✅ Quiz submission
 * ✅ Quiz attempt tracking
 * ✅ Passed and failed course status
 * ✅ Certificate generation
+* ✅ Duplicate certificate prevention
 * ✅ PDF certificate creation
 * ✅ Certificate storage in Amazon S3
-* ✅ Secure certificate PDF access
+* ✅ Temporary secure certificate PDF access
+* ✅ Certificate retrieval
 * ✅ Certificate verification
-* ✅ React frontend integration with AWS API Gateway
+* ✅ React frontend integration with Amazon API Gateway
+
+---
+
+# 🧪 End-to-End Certificate Test
+
+The certificate workflow has been tested using a dedicated end-to-end employee and course.
+
+Example test data:
+
+```text
+Employee ID:
+TEST_E2E_002
+
+Course ID:
+CRS002
+
+Course:
+AWS Security Fundamentals
+```
+
+Assignment result:
+
+```text
+Progress: 100
+Status: passed
+Attempt Count: 1
+```
+
+Completion result:
+
+```text
+Correct Answers: 2
+Total Questions: 2
+Score: 100
+Status: passed
+```
+
+Certificate result:
+
+```text
+Certificate ID:
+CERT-XXXXXXXXXXXX
+
+Employee:
+EndToEnd Tester 002
+
+Course:
+AWS Security Fundamentals
+
+Status:
+ISSUED
+```
+
+Certificate verification:
+
+```text
+valid: true
+message: Certificate is valid
+status: ISSUED
+```
+
+The generated PDF was stored in Amazon S3 using the following structure:
+
+```text
+certificates/
+└── TEST_E2E_002/
+    └── CRS002.pdf
+```
 
 ---
 
@@ -727,8 +953,11 @@ The following functionality has been tested and is currently working:
 
 ```text
 EMP001
+
 Rahul Sharma
+
 Cloud Engineer
+
 Engineering
 ```
 
@@ -736,6 +965,7 @@ Engineering
 
 ```text
 CRS001
+
 AWS Cloud Fundamentals
 ```
 
@@ -746,6 +976,172 @@ Certificate ID: CERT-XXXXXXXXXXXX
 Employee: Sneha Patel
 Course: AWS Cloud Fundamentals
 Status: ISSUED
+```
+
+---
+
+# 🧭 Current Browser Testing Flow
+
+The frontend supports the following learning workflow:
+
+```text
+Create Employee
+        ↓
+Create Course
+        ↓
+Assign Course
+        ↓
+Create Quiz Question
+        ↓
+Select Employee and Course
+        ↓
+Take Quiz
+        ↓
+Pass Quiz
+        ↓
+Generate Certificate
+        ↓
+Open PDF
+        ↓
+Verify Certificate
+```
+
+---
+
+# 🌐 Frontend Routes
+
+| Route               | Purpose                                        |
+| ------------------- | ---------------------------------------------- |
+| `/`                 | Dashboard and learning summary                 |
+| `/employees`        | View, search, and create employees             |
+| `/courses`          | View and create courses                        |
+| `/assign-course`    | Assign a course to an employee                 |
+| `/employee-courses` | Select an employee and view assigned courses   |
+| `/quiz`             | Create quiz questions                          |
+| `/take-quiz`        | Take a quiz for a selected employee and course |
+| `/certificates`     | Generate and verify certificates               |
+
+> Keep this route list synchronized with the routes implemented in the current React frontend.
+
+---
+
+# 🧪 Browser Test Procedure
+
+1. Start the frontend:
+
+```bash
+npm install
+npm run dev
+```
+
+2. Open the Vite development URL shown in the terminal.
+
+3. Open **Employees** and create a unique employee.
+
+4. Open **Courses** and create a unique course.
+
+5. Open **Assign Course** and assign the course to the employee.
+
+6. Open **Create Quiz Question**.
+
+7. Use the exact course ID when creating the quiz question.
+
+8. Open **My Courses** and select the new employee.
+
+9. Click **Take Quiz** for the assigned course.
+
+10. Answer all questions and submit the quiz.
+
+11. Confirm that the course status becomes `passed` and progress becomes `100`.
+
+12. Open **Certificates**.
+
+13. Generate the certificate.
+
+14. Open the generated PDF.
+
+15. Copy the certificate ID.
+
+16. Verify the certificate using the Certificate ID.
+
+Use unique IDs for every test because the deployed API uses shared persistent data.
+
+Example:
+
+```text
+Employee ID:
+BROWSER-EMP-20260829-01
+
+Course ID:
+BROWSER-COURSE-20260829-01
+
+Question ID:
+BROWSER-Q-20260829-01
+```
+
+---
+
+# 📧 Certificate and Amazon SES
+
+Certificate generation uses the deployed AWS backend.
+
+If the backend sends an optional notification email, the recipient email address must be verified in Amazon SES when the AWS account is operating in sandbox mode.
+
+For this error:
+
+```text
+Email address is not verified
+MessageRejected
+```
+
+verify the recipient identity in Amazon SES in the configured AWS region, or use an already verified email address.
+
+The certificate generation workflow should ideally keep the certificate issued when only the optional email notification fails.
+
+---
+
+# 🔍 Validation Commands
+
+Run these commands before sharing or deploying the frontend:
+
+```bash
+npm run lint
+```
+
+and:
+
+```bash
+npm run build
+```
+
+Both commands should complete without errors.
+
+---
+
+# 🔐 Repository Security
+
+Before pushing the project to GitHub, make sure the repository does not contain:
+
+```text
+.env
+AWS Access Keys
+AWS Secret Keys
+Temporary AWS Session Tokens
+S3 Presigned URLs
+Private credentials
+Passwords
+API secrets
+```
+
+Recommended `.gitignore` entries:
+
+```gitignore
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+*.log
 ```
 
 ---
@@ -766,6 +1162,7 @@ Possible future enhancements include:
 * Employee login and personalized learning dashboard
 * Certificate renewal and expiry management
 * Infrastructure as Code using AWS SAM, Terraform, or CloudFormation
+* Automated CI/CD deployment
 
 ---
 
@@ -790,7 +1187,11 @@ Course Completion
         ↓
 Certificate Generation
         ↓
+PDF Generation
+        ↓
 Amazon S3 Storage
+        ↓
+Certificate Retrieval
         ↓
 Certificate Verification
 ```
@@ -807,94 +1208,24 @@ AWS Cloud & Full Stack Development Project
 
 ---
 
-# ✅ Current Browser Testing Flow
-
-The frontend supports the following browser workflow:
+# ⭐ Project Highlights
 
 ```text
-Create Employee
-        ↓
-Create Course
-        ↓
-Assign Course
-        ↓
-Create Quiz Question
-        ↓
-Select Employee and Course
-        ↓
-Take Quiz
-        ↓
-Pass Quiz
-        ↓
-Generate Certificate
-        ↓
-Open PDF and Verify Certificate
+React.js + Vite
+        +
+Amazon API Gateway
+        +
+AWS Lambda
+        +
+Amazon DynamoDB
+        +
+Amazon S3
+        +
+AWS IAM
+        +
+Amazon SES
+        +
+Python + ReportLab
 ```
 
-## Frontend Routes
-
-| Route | Purpose |
-| ----- | ------- |
-| `/` | Dashboard and learning summary |
-| `/employees` | View, search, and create employees |
-| `/courses` | View and create courses |
-| `/assign-course` | Assign a course to an employee |
-| `/employee-courses` | Select an employee and view assigned courses |
-| `/quiz` | Create quiz questions |
-| `/take-quiz` | Take a quiz for a selected employee and course |
-| `/certificates` | Generate and verify certificates |
-
-## Browser Test Procedure
-
-1. Start the frontend:
-
-   ```bash
-   npm install
-   npm run dev
-   ```
-
-2. Open `http://localhost:5175/`.
-3. Open **Employees** and create a unique employee.
-4. Open **Courses** and create a unique course.
-5. Open **Assign Course** and assign the course to the employee.
-6. Open **Create Quiz Question** from the dashboard.
-7. Use the exact course ID when creating the question.
-8. Open **My Courses** and select the new employee.
-9. Click **Take Quiz** for the assigned course.
-10. Answer all questions and submit the quiz.
-11. After passing, click **Generate Certificate**.
-12. Open the generated PDF and verify the certificate ID.
-
-Use unique IDs for every test because the deployed API uses shared persistent data. For example:
-
-```text
-Employee ID: BROWSER-EMP-20260826-01
-Course ID: BROWSER-COURSE-20260826-01
-Question ID: BROWSER-Q-20260826-01
-```
-
-## Certificate and Amazon SES
-
-Certificate generation uses the deployed AWS backend. If the backend sends a notification email, the recipient email address must be verified in Amazon SES when the AWS account is in sandbox mode.
-
-For this error:
-
-```text
-Email address is not verified
-MessageRejected
-```
-
-Verify the recipient identity in Amazon SES in the `us-east-1` region, or use an email address that is already verified. After verification, return to `/certificates` and retry generation.
-
-The backend should ideally keep the certificate issued when only the optional email notification fails. The React frontend does not contain the Lambda, DynamoDB, S3, IAM, or SES backend source.
-
-## Validation Commands
-
-Run these commands before sharing the frontend:
-
-```bash
-npm run lint
-npm run build
-```
-
-Both commands must complete without errors.
+A complete serverless learning management workflow from **employee onboarding to course completion and certificate verification**.
